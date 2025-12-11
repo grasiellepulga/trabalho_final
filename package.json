@@ -1,6 +1,7 @@
 {
   "name": "white-label-api",
   "version": "1.0.0",
+<<<<<<< HEAD
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -11,5 +12,20 @@
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2"
+=======
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.86.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0"
+>>>>>>> 9215355b9a64a1da98c7053629e7386d81404871
   }
 }
