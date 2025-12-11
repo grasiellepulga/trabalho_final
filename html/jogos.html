@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gerenciamento de Jogos</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    h1, h2 { margin: 0 0 8px; }
+    .card {
+      background: #1f2937;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+    }
+    label { display: block; margin-top: 10px; margin-bottom: 4px; }
+    input {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #4b5563;
+      background: #111827;
+      color: #f9fafb;
+    }
+    button {
+      margin-top: 12px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: none;
+      background: #3b82f6;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover { background: #2563eb; }
+    .btn-danger { background: #ef4444; }
+    .btn-danger:hover { background: #b91c1c; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+    th, td {
+      padding: 8px;
+      border-bottom: 1px solid #374151;
+    }
+    th { background: #111827; }
+
+    .mensagem { margin-top: 8px; min-height: 18px; }
+    .erro { color: #fca5a5; }
+    .sucesso { color: #6ee7b7; }
+  </style>
+</head>
+<body>
+
+  <h1>Gerenciamento de Jogos 🎮</h1>
+  
+  <!-- Card de cadastro (somente admin) -->
+  <div class="card" id="card-cadastro" style="display: none;">
+    <h2>Cadastrar Jogo</h2>
+    <form id="form-jogo">
+      <label for="nome_jogo">Nome do Jogo</label>
+      <input type="text" id="nome_jogo" required>
+
+      <label for="genero">Gênero</label>
+      <input type="text" id="genero">
+
+      <label for="ano_lancamento">Ano de Lançamento</label>
+      <input type="number" id="ano_lancamento">
+
+      <button type="submit">Cadastrar</button>
+    </form>
+    <div id="msgJogo" class="mensagem"></div>
+  </div>
+
+  <!-- Card de listagem -->
+  <div class="card">
+    <h2>Lista de Jogos</h2>
+    <button id="btnAtualizar">Atualizar lista</button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nome</th>
+          <th>Gênero</th>
+          <th>Ano</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tabela-jogos"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const API_URL = "http://localhost:3000";
+
+    // =======================
+    // SISTEMA DE PERMISSÕES
+    // =======================
+
+    function getUser() {
+      return JSON.parse(localStorage.getItem("usuarioLogado"));
+    }
+
+    function isAdmin() {
+      const u = getUser();
+      return u && u.tipo_user === "admin";
+    }
+
+    // Mostrar card de cadastro apenas para ADM
+    if (isAdmin()) {
+      document.getElementById("card-cadastro").style.display = "block";
+    }
+
+    // =======================
+    // CADASTRAR JOGO
+    // =======================
+    const formJogo = document.getElementById("form-jogo");
+    const msgJogo = document.getElementById("msgJogo");
+
+    if (formJogo) {
+      formJogo.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        msgJogo.textContent = "";
+        msgJogo.className = "mensagem";
+
+        if (!isAdmin()) {
+          msgJogo.textContent = "Apenas administradores podem cadastrar jogos.";
+          msgJogo.classList.add("erro");
+          return;
+        }
+
+        const nome = document.getElementById("nome_jogo").value.trim();
+        const genero = document.getElementById("genero").value.trim();
+        const ano_lancamento = document.getElementById("ano_lancamento").value.trim();
+
+        try {
+          const resposta = await fetch(`${API_URL}/api/jogos`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              nome,
+              genero,
+              ano_lancamento,
+              tipo_user: getUser()?.tipo_user // usado para checkAdmin no backend
+            }),
+          });
+
+          const data = await resposta.json();
+
+          if (!resposta.ok) {
+            msgJogo.textContent = data.error || "Erro ao cadastrar jogo.";
+            msgJogo.classList.add("erro");
+            return;
+          }
+
+          msgJogo.textContent = "Jogo cadastrado com sucesso!";
+          msgJogo.classList.add("sucesso");
+          formJogo.reset();
+          carregarJogos();
+        } catch (erro) {
+          console.error(erro);
+          msgJogo.textContent = "Erro de conexão.";
+          msgJogo.classList.add("erro");
+        }
+      });
+    }
+
+    // =======================
+    // LISTAR JOGOS
+    // =======================
+    const tabelaJogos = document.getElementById("tabela-jogos");
+    const btnAtualizar = document.getElementById("btnAtualizar");
+
+    async function carregarJogos() {
+      tabelaJogos.innerHTML = "<tr><td colspan='5'>Carregando...</td></tr>";
+
+      try {
+        const resposta = await fetch(`${API_URL}/api/jogos`);
+        const data = await resposta.json();
+
+        tabelaJogos.innerHTML = "";
+
+        data.forEach((jogo) => {
+          const tr = document.createElement("tr");
+
+          tr.innerHTML = `
+            <td>${jogo.id_jogo}</td>
+            <td>${jogo.nome}</td>
+            <td>${jogo.genero || "-"}</td>
+            <td>${jogo.ano_lancamento || "-"}</td>
+            <td>
+              ${ isAdmin() 
+                  ? `<button class="btn-danger" data-id="${jogo.id_jogo}">Excluir</button>`
+                  : "Sem permissão"
+              }
+            </td>
+          `;
+
+          tabelaJogos.appendChild(tr);
+        });
+
+        document.querySelectorAll(".btn-danger").forEach((btn) => {
+          btn.addEventListener("click", () => excluirJogo(btn.dataset.id));
+        });
+
+      } catch (erro) {
+        console.error(erro);
+        tabelaJogos.innerHTML = "<tr><td colspan='5'>Erro ao carregar jogos.</td></tr>";
+      }
+    }
+
+    // =======================
+    // EXCLUIR JOGO
+    // =======================
+    async function excluirJogo(id) {
+      if (!isAdmin()) {
+        alert("Somente administradores podem excluir jogos.");
+        return;
+      }
+
+      if (!confirm("Deseja mesmo excluir este jogo?")) return;
+
+      try {
+        const resposta = await fetch(`${API_URL}/api/jogos/${id}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tipo_user: getUser()?.tipo_user }) // usado pelo backend
+        });
+
+        const data = await resposta.json();
+
+        if (!resposta.ok) {
+          alert(data.error || "Erro ao excluir.");
+          return;
+        }
+
+        alert("Jogo excluído!");
+        carregarJogos();
+
+      } catch (erro) {
+        console.error(erro);
+        alert("Erro de conexão.");
+      }
+    }
+
+    btnAtualizar.addEventListener("click", carregarJogos);
+    carregarJogos();
+  </script>
+</body>
+</html>
